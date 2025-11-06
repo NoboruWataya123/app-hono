@@ -1,6 +1,7 @@
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi';
 import { z } from '@hono/zod-openapi';
-import { db } from '../lib/db/store';
+import { nanoid } from 'nanoid';
+import { VideoRepository } from '../lib/db/repositories';
 import { S3Service } from '../lib/s3/client';
 import { FFmpegService } from '../lib/ffmpeg/wrapper';
 import { config } from '../config/env';
@@ -49,33 +50,18 @@ videoApp.openapi(listVideosRoute, async (c) => {
   const query = c.req.valid('query');
   const page = parseInt(query.page || '1');
   const limit = parseInt(query.limit || '20');
+  const offset = (page - 1) * limit;
 
-  let videos = db.getAllVideos();
+  const { videos: allVideos, total } = await VideoRepository.findAll({
+    categoryId: query.categoryId,
+    genre: query.genre,
+    status: query.status as any,
+    search: query.search,
+    limit,
+    offset,
+  });
 
-  // Filter by category
-  if (query.categoryId) {
-    videos = videos.filter((v) => v.categoryId === query.categoryId);
-  }
-
-  // Filter by genre
-  if (query.genre) {
-    videos = videos.filter((v) => v.genres.includes(query.genre!));
-  }
-
-  // Filter by status
-  if (query.status) {
-    videos = videos.filter((v) => v.status === query.status);
-  }
-
-  // Search
-  if (query.search) {
-    const searchLower = query.search.toLowerCase();
-    videos = videos.filter(
-      (v) =>
-        v.title.toLowerCase().includes(searchLower) ||
-        v.description.toLowerCase().includes(searchLower)
-    );
-  }
+  let videos = allVideos;
 
   // Filter out non-public videos for non-admins
   const user = c.get('user');
@@ -84,13 +70,10 @@ videoApp.openapi(listVideosRoute, async (c) => {
   }
 
   // Pagination
-  const total = videos.length;
   const totalPages = Math.ceil(total / limit);
-  const start = (page - 1) * limit;
-  const paginatedVideos = videos.slice(start, start + limit);
 
   return c.json({
-    videos: paginatedVideos.map((v) => ({
+    videos: videos.map((v) => ({
       ...v,
       createdAt: v.createdAt.toISOString(),
       updatedAt: v.updatedAt.toISOString(),
@@ -135,7 +118,7 @@ const getVideoRoute = createRoute({
 
 videoApp.openapi(getVideoRoute, async (c) => {
   const { id } = c.req.valid('param');
-  const video = db.getVideoById(id);
+  const video = await VideoRepository.findById(id);
 
   if (!video) {
     return c.json({ success: false, error: 'Video not found' }, 404);
@@ -147,7 +130,7 @@ videoApp.openapi(getVideoRoute, async (c) => {
   }
 
   // Increment view count
-  db.incrementViewCount(id);
+  await VideoRepository.incrementViewCount(id);
 
   return c.json({
     ...video,
@@ -193,7 +176,8 @@ videoApp.openapi(createVideoRoute, async (c) => {
   const s3Key = S3Service.generateKey('videos/original', data.filename);
 
   // Create video entry
-  const video = db.createVideo({
+  const video = await VideoRepository.create({
+    id: `vid_${nanoid(10)}`,
     title: data.title,
     description: data.description || '',
     originalFilename: data.filename,
@@ -268,7 +252,7 @@ videoApp.openapi(updateVideoRoute, async (c) => {
   const updates = c.req.valid('json');
   const user = c.get('user');
 
-  const video = db.getVideoById(id);
+  const video = await VideoRepository.findById(id);
   if (!video) {
     return c.json({ success: false, error: 'Video not found' }, 404);
   }
@@ -278,7 +262,7 @@ videoApp.openapi(updateVideoRoute, async (c) => {
     return c.json({ success: false, error: 'Access denied' }, 403);
   }
 
-  const updated = db.updateVideo(id, updates);
+  const updated = await VideoRepository.update(id, updates);
   if (!updated) {
     return c.json({ success: false, error: 'Failed to update video' }, 500);
   }
@@ -323,7 +307,7 @@ videoApp.openapi(deleteVideoRoute, async (c) => {
   const { id } = c.req.valid('param');
   const user = c.get('user');
 
-  const video = db.getVideoById(id);
+  const video = await VideoRepository.findById(id);
   if (!video) {
     return c.json({ success: false, error: 'Video not found' }, 404);
   }
@@ -336,7 +320,7 @@ videoApp.openapi(deleteVideoRoute, async (c) => {
   // Delete from S3
   const keysToDelete = [
     video.s3Key,
-    ...video.resolutions.map((r) => r.s3Key),
+    ...video.resolutions.map((r: any) => r.s3Key),
     ...(video.thumbnailKey ? [video.thumbnailKey] : []),
   ];
 
@@ -347,7 +331,7 @@ videoApp.openapi(deleteVideoRoute, async (c) => {
   }
 
   // Delete from database
-  db.deleteVideo(id);
+  await VideoRepository.delete(id);
 
   return c.json({ success: true, message: 'Video deleted successfully' });
 });
@@ -392,7 +376,7 @@ videoApp.openapi(getStreamingUrlRoute, async (c) => {
   const { quality } = c.req.valid('query');
   const user = c.get('user');
 
-  const video = db.getVideoById(id);
+  const video = await VideoRepository.findById(id);
   if (!video) {
     return c.json({ success: false, error: 'Video not found' }, 404);
   }
@@ -456,7 +440,7 @@ videoApp.openapi(processVideoRoute, async (c) => {
   const { id } = c.req.valid('param');
   const user = c.get('user');
 
-  const video = db.getVideoById(id);
+  const video = await VideoRepository.findById(id);
   if (!video) {
     return c.json({ success: false, error: 'Video not found' }, 404);
   }
@@ -469,10 +453,10 @@ videoApp.openapi(processVideoRoute, async (c) => {
   // Start processing in background (simplified - in production use a job queue)
   processVideoInBackground(id).catch((error) => {
     console.error(`Failed to process video ${id}:`, error);
-    db.updateVideo(id, { status: 'failed' });
+    VideoRepository.update(id, { status: 'failed' });
   });
 
-  db.updateVideo(id, { status: 'processing' });
+  await VideoRepository.update(id, { status: 'processing' });
 
   return c.json(
     {
@@ -485,7 +469,7 @@ videoApp.openapi(processVideoRoute, async (c) => {
 
 // Background video processing function
 async function processVideoInBackground(videoId: string) {
-  const video = db.getVideoById(videoId);
+  const video = await VideoRepository.findById(videoId);
   if (!video) return;
 
   try {
@@ -501,7 +485,7 @@ async function processVideoInBackground(videoId: string) {
     const metadata = await FFmpegService.getMetadata(inputPath);
 
     // Update video with metadata
-    db.updateVideo(videoId, {
+    await VideoRepository.update(videoId, {
       duration: metadata.duration,
       format: metadata.format,
       codec: metadata.codec,
@@ -557,7 +541,7 @@ async function processVideoInBackground(videoId: string) {
     }
 
     // Update video status
-    db.updateVideo(videoId, {
+    await VideoRepository.update(videoId, {
       status: 'ready',
       thumbnailKey,
       resolutions,
@@ -568,7 +552,7 @@ async function processVideoInBackground(videoId: string) {
     await Bun.write(thumbnailPath, '');
   } catch (error) {
     console.error('Video processing error:', error);
-    db.updateVideo(videoId, { status: 'failed' });
+    await VideoRepository.update(videoId, { status: 'failed' });
   }
 }
 

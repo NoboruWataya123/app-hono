@@ -1,6 +1,7 @@
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi';
 import { z } from '@hono/zod-openapi';
-import { db } from '../lib/db/store';
+import { nanoid } from 'nanoid';
+import { CategoryRepository, VideoRepository, GenreRepository } from '../lib/db/repositories';
 import { authMiddleware, adminMiddleware } from '../middleware/auth';
 import {
   CategorySchema,
@@ -32,7 +33,7 @@ const listCategoriesRoute = createRoute({
 });
 
 categoryApp.openapi(listCategoriesRoute, async (c) => {
-  const categories = db.getAllCategories();
+  const categories = await CategoryRepository.findAll();
 
   return c.json({
     categories: categories.map((cat) => ({
@@ -73,7 +74,7 @@ const getCategoryRoute = createRoute({
 
 categoryApp.openapi(getCategoryRoute, async (c) => {
   const { id } = c.req.valid('param');
-  const category = db.getCategoryById(id);
+  const category = await CategoryRepository.findById(id);
 
   if (!category) {
     return c.json({ success: false, error: 'Category not found' }, 404);
@@ -110,9 +111,9 @@ const getCategoryVideosRoute = createRoute({
 
 categoryApp.openapi(getCategoryVideosRoute, async (c) => {
   const { id } = c.req.valid('param');
-  const videos = db.getVideosByCategory(id);
+  const videos = await VideoRepository.findByCategory(id);
 
-  // Filter only public videos for unauthenticated users
+  // Filter only public and ready videos
   const publicVideos = videos.filter((v) => v.isPublic && v.status === 'ready');
 
   return c.json({
@@ -173,11 +174,13 @@ categoryApp.openapi(
       .replace(/^-|-$/g, '');
 
     // Check if slug already exists
-    if (db.getCategoryBySlug(slug)) {
+    const existing = await CategoryRepository.findBySlug(slug);
+    if (existing) {
       return c.json({ success: false, error: 'Category with this name already exists' }, 400);
     }
 
-    const category = db.createCategory({
+    const category = await CategoryRepository.create({
+      id: `cat_${nanoid(10)}`,
       name: data.name,
       slug,
       description: data.description,
@@ -236,9 +239,9 @@ categoryApp.openapi(
   adminMiddleware,
   async (c) => {
     const { id } = c.req.valid('param');
-    const updates = c.req.valid('json');
+    const updates: any = c.req.valid('json');
 
-    const category = db.getCategoryById(id);
+    const category = await CategoryRepository.findById(id);
     if (!category) {
       return c.json({ success: false, error: 'Category not found' }, 404);
     }
@@ -250,7 +253,7 @@ categoryApp.openapi(
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-|-$/g, '');
 
-      const existing = db.getCategoryBySlug(newSlug);
+      const existing = await CategoryRepository.findBySlug(newSlug);
       if (existing && existing.id !== id) {
         return c.json({ success: false, error: 'Category with this name already exists' }, 400);
       }
@@ -258,7 +261,7 @@ categoryApp.openapi(
       updates.slug = newSlug;
     }
 
-    const updated = db.updateCategory(id, updates);
+    const updated = await CategoryRepository.update(id, updates);
     if (!updated) {
       return c.json({ success: false, error: 'Failed to update category' }, 500);
     }
@@ -307,12 +310,12 @@ categoryApp.openapi(
   async (c) => {
     const { id } = c.req.valid('param');
 
-    const category = db.getCategoryById(id);
+    const category = await CategoryRepository.findById(id);
     if (!category) {
       return c.json({ success: false, error: 'Category not found' }, 404);
     }
 
-    db.deleteCategory(id);
+    await CategoryRepository.delete(id);
 
     return c.json({ success: true, message: 'Category deleted successfully' });
   }
@@ -336,7 +339,7 @@ const listGenresRoute = createRoute({
 });
 
 categoryApp.openapi(listGenresRoute, async (c) => {
-  const genres = db.getAllGenres();
+  const genres = await GenreRepository.findAll();
 
   return c.json({
     genres,

@@ -1,6 +1,6 @@
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi';
 import { z } from '@hono/zod-openapi';
-import { db } from '../lib/db/store';
+import { UserRepository, VideoRepository } from '../lib/db/repositories';
 import { authMiddleware } from '../middleware/auth';
 import {
   UserSchema,
@@ -49,7 +49,7 @@ const getUserRoute = createRoute({
 
 userApp.openapi(getUserRoute, async (c) => {
   const { id } = c.req.valid('param');
-  const user = db.getUserById(id);
+  const user = await UserRepository.findById(id);
 
   if (!user) {
     return c.json({ success: false, error: 'User not found' }, 404);
@@ -105,7 +105,7 @@ userApp.openapi(updateUserRoute, async (c) => {
 
   // Check if username is already taken
   if (updates.username) {
-    const existing = db.getUserByUsername(updates.username);
+    const existing = await UserRepository.findByUsername(updates.username);
     if (existing && existing.id !== userPayload.userId) {
       return c.json({ success: false, error: 'Username already taken' }, 400);
     }
@@ -113,13 +113,13 @@ userApp.openapi(updateUserRoute, async (c) => {
 
   // Check if email is already taken
   if (updates.email) {
-    const existing = db.getUserByEmail(updates.email);
+    const existing = await UserRepository.findByEmail(updates.email);
     if (existing && existing.id !== userPayload.userId) {
       return c.json({ success: false, error: 'Email already registered' }, 400);
     }
   }
 
-  const updated = db.updateUser(userPayload.userId, updates);
+  const updated = await UserRepository.update(userPayload.userId, updates);
   if (!updated) {
     return c.json({ success: false, error: 'Failed to update user' }, 500);
   }
@@ -165,7 +165,7 @@ userApp.openapi(getUserVideosRoute, async (c) => {
   const { id } = c.req.valid('param');
   const currentUser = c.get('user');
 
-  let videos = db.getVideosByUser(id);
+  let videos = await VideoRepository.findByUser(id);
 
   // Filter private videos if not owner or admin
   if (id !== currentUser.userId && currentUser.role !== 'admin') {

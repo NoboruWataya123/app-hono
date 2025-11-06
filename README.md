@@ -19,12 +19,15 @@ A modern, minimalist video streaming platform built for regional and independent
 ### Backend
 - **[Hono.js](https://hono.dev/)** - Ultra-fast web framework
 - **[Zod OpenAPI Hono](https://github.com/honojs/middleware/tree/main/packages/zod-openapi)** - Type-safe validation and OpenAPI generation
+- **[Drizzle ORM](https://orm.drizzle.team/)** - TypeScript ORM for PostgreSQL
+- **[postgres.js](https://github.com/porsager/postgres)** - Fast PostgreSQL client
 - **[Bun S3](https://bun.sh/docs/api/s3)** - Native S3 integration
 - **[FFmpeg](https://ffmpeg.org/)** - Video processing and transcoding
 - **TypeScript** - Type safety and better DX
 
 ### Features
-- In-memory data store (easily replaceable with PostgreSQL/MongoDB)
+- PostgreSQL database with Drizzle ORM
+- Repository pattern for clean data access
 - JWT authentication with bcrypt password hashing
 - Modular, maintainable architecture
 - Best practices for Hono.js development
@@ -34,6 +37,17 @@ A modern, minimalist video streaming platform built for regional and independent
 Before you begin, ensure you have the following installed:
 
 - **Node.js** (v18 or higher) - The code is written for Node.js but designed for Bun
+- **PostgreSQL** (v14 or higher) - Database
+  ```bash
+  # Ubuntu/Debian
+  sudo apt-get install postgresql postgresql-contrib
+
+  # macOS
+  brew install postgresql@16
+
+  # Windows
+  # Download from https://www.postgresql.org/download/windows/
+  ```
 - **FFmpeg** - Required for video processing
   ```bash
   # Ubuntu/Debian
@@ -71,6 +85,9 @@ Edit `.env` with your settings:
 PORT=3000
 NODE_ENV=development
 
+# Database
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/streaming
+
 # JWT Secret (change this!)
 JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
 JWT_EXPIRES_IN=7d
@@ -93,7 +110,37 @@ TEMP_UPLOAD_DIR=/tmp/uploads
 CORS_ORIGIN=http://localhost:3001
 ```
 
-### 3. Start the Server
+### 3. Database Setup
+
+Create PostgreSQL database:
+
+```bash
+# Connect to PostgreSQL
+psql postgres
+
+# Create database
+CREATE DATABASE streaming;
+
+# Exit
+\q
+```
+
+Run migrations:
+
+```bash
+# Generate migration files
+npm run db:generate
+
+# Apply migrations
+npm run db:migrate
+
+# Seed with initial data (optional)
+npm run db:seed
+```
+
+For detailed database setup, see [DATABASE_SETUP.md](DATABASE_SETUP.md)
+
+### 4. Start the Server
 
 ```bash
 # Development mode with hot reload

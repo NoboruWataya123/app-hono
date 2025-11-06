@@ -4,6 +4,9 @@ const envSchema = z.object({
   PORT: z.string().default('3000'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 
+  // Database
+  DATABASE_URL: z.string().url(),
+
   // JWT
   JWT_SECRET: z.string().min(32),
   JWT_EXPIRES_IN: z.string().default('7d'),
@@ -33,6 +36,7 @@ function loadEnv(): Env {
     const env = {
       PORT: process.env.PORT,
       NODE_ENV: process.env.NODE_ENV,
+      DATABASE_URL: process.env.DATABASE_URL,
       JWT_SECRET: process.env.JWT_SECRET,
       JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN,
       S3_ACCESS_KEY_ID: process.env.S3_ACCESS_KEY_ID,

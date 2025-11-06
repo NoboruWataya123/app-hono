@@ -1,6 +1,7 @@
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi';
 import { z } from '@hono/zod-openapi';
-import { db } from '../lib/db/store';
+import { nanoid } from 'nanoid';
+import { UserRepository } from '../lib/db/repositories';
 import { hashPassword, verifyPassword, generateToken } from '../utils/auth';
 import {
   RegisterSchema,
@@ -50,7 +51,8 @@ authApp.openapi(registerRoute, async (c) => {
   const { email, username, password } = c.req.valid('json');
 
   // Check if user already exists
-  if (db.getUserByEmail(email)) {
+  const existingEmail = await UserRepository.findByEmail(email);
+  if (existingEmail) {
     return c.json(
       {
         success: false,
@@ -60,7 +62,8 @@ authApp.openapi(registerRoute, async (c) => {
     );
   }
 
-  if (db.getUserByUsername(username)) {
+  const existingUsername = await UserRepository.findByUsername(username);
+  if (existingUsername) {
     return c.json(
       {
         success: false,
@@ -72,7 +75,8 @@ authApp.openapi(registerRoute, async (c) => {
 
   // Hash password and create user
   const passwordHash = await hashPassword(password);
-  const user = db.createUser({
+  const user = await UserRepository.create({
+    id: `usr_${nanoid(10)}`,
     email,
     username,
     passwordHash,
@@ -140,7 +144,7 @@ authApp.openapi(loginRoute, async (c) => {
   const { email, password } = c.req.valid('json');
 
   // Find user by email
-  const user = db.getUserByEmail(email);
+  const user = await UserRepository.findByEmail(email);
   if (!user) {
     return c.json(
       {
@@ -212,7 +216,7 @@ const getMeRoute = createRoute({
 authApp.openapi(getMeRoute, async (c) => {
   const userPayload = c.get('user');
 
-  const user = db.getUserById(userPayload.userId);
+  const user = await UserRepository.findById(userPayload.userId);
   if (!user) {
     return c.json(
       {

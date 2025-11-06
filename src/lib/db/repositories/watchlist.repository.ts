@@ -17,8 +17,9 @@ export class WatchlistRepository {
   static async remove(userId: string, videoId: string): Promise<boolean> {
     const result = await db
       .delete(watchlist)
-      .where(and(eq(watchlist.userId, userId), eq(watchlist.videoId, videoId)));
-    return result.rowCount > 0;
+      .where(and(eq(watchlist.userId, userId), eq(watchlist.videoId, videoId)))
+      .returning();
+    return result.length > 0;
   }
 
   /**

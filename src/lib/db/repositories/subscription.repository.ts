@@ -1,4 +1,4 @@
-import { eq, and, gte } from 'drizzle-orm';
+import { eq, and, gte, sql } from 'drizzle-orm';
 import { db } from '../client';
 import { subscriptions, type Subscription, type NewSubscription } from '../schema';
 
@@ -27,6 +27,7 @@ export class SubscriptionRepository {
    * Find active subscription by user ID
    */
   static async findActiveByUserId(userId: string): Promise<Subscription | undefined> {
+    const now = new Date();
     const [subscription] = await db
       .select()
       .from(subscriptions)
@@ -34,7 +35,7 @@ export class SubscriptionRepository {
         and(
           eq(subscriptions.userId, userId),
           eq(subscriptions.status, 'active'),
-          gte(subscriptions.currentPeriodEnd, new Date())
+          sql`${subscriptions.currentPeriodEnd} >= ${now}`
         )
       )
       .orderBy(subscriptions.createdAt)
@@ -93,13 +94,14 @@ export class SubscriptionRepository {
    * Find expired subscriptions that need to be processed
    */
   static async findExpired(): Promise<Subscription[]> {
+    const now = new Date();
     return await db
       .select()
       .from(subscriptions)
       .where(
         and(
           eq(subscriptions.status, 'active'),
-          gte(new Date(), subscriptions.currentPeriodEnd)
+          sql`${subscriptions.currentPeriodEnd} < ${now}`
         )
       );
   }

@@ -43,8 +43,8 @@ export class CategoryRepository {
    * Delete category
    */
   static async delete(id: string): Promise<boolean> {
-    const result = await db.delete(categories).where(eq(categories.id, id));
-    return result.rowCount > 0;
+    const result = await db.delete(categories).where(eq(categories.id, id)).returning();
+    return result.length > 0;
   }
 
   /**

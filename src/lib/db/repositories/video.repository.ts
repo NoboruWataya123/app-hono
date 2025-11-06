@@ -35,8 +35,8 @@ export class VideoRepository {
    * Delete video
    */
   static async delete(id: string): Promise<boolean> {
-    const result = await db.delete(videos).where(eq(videos.id, id));
-    return result.rowCount > 0;
+    const result = await db.delete(videos).where(eq(videos.id, id)).returning();
+    return result.length > 0;
   }
 
   /**
@@ -125,8 +125,9 @@ export class VideoRepository {
     const result = await db
       .update(videos)
       .set({ viewCount: sql`${videos.viewCount} + 1` })
-      .where(eq(videos.id, id));
-    return result.rowCount > 0;
+      .where(eq(videos.id, id))
+      .returning();
+    return result.length > 0;
   }
 
   /**

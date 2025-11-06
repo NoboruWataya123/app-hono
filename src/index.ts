@@ -19,6 +19,14 @@ import watchHistoryRoutes from './routes/watch-history.routes';
  */
 const app = new OpenAPIHono();
 
+// Register security scheme
+app.openAPIRegistry.registerComponent('securitySchemes', 'Bearer', {
+  type: 'http',
+  scheme: 'bearer',
+  bearerFormat: 'JWT',
+  description: 'Enter your JWT token',
+});
+
 // Global middleware
 app.use('*', logger());
 app.use(
@@ -109,16 +117,6 @@ Payments are processed through YooKassa payment gateway.
       description: 'Development server',
     },
   ],
-  components: {
-    securitySchemes: {
-      Bearer: {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-        description: 'Enter your JWT token',
-      },
-    },
-  },
 });
 
 // Swagger UI

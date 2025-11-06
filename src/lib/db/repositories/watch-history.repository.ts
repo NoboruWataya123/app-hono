@@ -106,16 +106,17 @@ export class WatchHistoryRepository {
   static async delete(userId: string, videoId: string): Promise<boolean> {
     const result = await db
       .delete(watchHistory)
-      .where(and(eq(watchHistory.userId, userId), eq(watchHistory.videoId, videoId)));
-    return result.rowCount > 0;
+      .where(and(eq(watchHistory.userId, userId), eq(watchHistory.videoId, videoId)))
+      .returning();
+    return result.length > 0;
   }
 
   /**
    * Clear all watch history for user
    */
   static async clearAll(userId: string): Promise<boolean> {
-    const result = await db.delete(watchHistory).where(eq(watchHistory.userId, userId));
-    return result.rowCount > 0;
+    const result = await db.delete(watchHistory).where(eq(watchHistory.userId, userId)).returning();
+    return result.length > 0;
   }
 
   /**

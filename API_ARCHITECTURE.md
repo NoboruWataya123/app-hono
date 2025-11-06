@@ -225,52 +225,94 @@ Features:
 
 ## Database
 
-### Current: In-Memory Store
+### Current: PostgreSQL with Drizzle ORM
 
-Located in `src/lib/db/store.ts`
+Located in `src/lib/db/`
 
-- Simple Map-based storage
-- Good for development and testing
-- **Not suitable for production**
+- **Database**: PostgreSQL with postgres.js client
+- **ORM**: Drizzle ORM for type-safe queries
+- **Migration**: Drizzle Kit for schema management
+- **Repository Pattern**: Clean data access layer
 
-### Collections
+### Tables
 
-- **Users**: Authentication and profiles
-- **Videos**: Video metadata and processing status
-- **Categories**: Content organization
-- **Genres**: Predefined genre list
+- **users**: Authentication and user profiles
+- **videos**: Video metadata and processing status
+- **categories**: Content organization
+- **genres**: Predefined genre list
+- **subscriptions**: User subscription management
+- **payments**: Payment tracking via YooKassa
+- **watchlist**: User favorites/watchlist
+- **watch_history**: Viewing progress tracking
 
-### Production Migration
+### Database Features
 
-Recommended: **PostgreSQL with Prisma**
+- **Type Safety**: Full TypeScript support with inferred types
+- **Relations**: Properly defined foreign keys and relations
+- **Enums**: PostgreSQL enums for status fields
+- **JSONB**: For storing arrays (resolutions, genres)
+- **Timestamps**: Auto-managed created_at and updated_at
+
+### Example Schema (Drizzle)
 
 ```typescript
-// Example schema
-model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  username      String   @unique
-  passwordHash  String
-  role          Role     @default(USER)
-  videos        Video[]
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-}
+// src/lib/db/schema.ts
+export const users = pgTable('users', {
+  id: varchar('id', { length: 50 }).primaryKey(),
+  email: varchar('email', { length: 255 }).notNull().unique(),
+  username: varchar('username', { length: 50 }).notNull().unique(),
+  passwordHash: text('password_hash').notNull(),
+  role: userRoleEnum('role').notNull().default('user'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
 
-model Video {
-  id               String          @id @default(cuid())
-  title            String
-  description      String
-  s3Key            String
-  thumbnailKey     String?
-  status           VideoStatus
-  resolutions      Resolution[]
-  category         Category?       @relation(fields: [categoryId], references: [id])
-  categoryId       String?
-  user             User            @relation(fields: [uploadedBy], references: [id])
-  uploadedBy       String
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+export const videos = pgTable('videos', {
+  id: varchar('id', { length: 50 }).primaryKey(),
+  title: varchar('title', { length: 200 }).notNull(),
+  description: text('description').notNull().default(''),
+  s3Key: varchar('s3_key', { length: 500 }).notNull(),
+  thumbnailKey: varchar('thumbnail_key', { length: 500 }),
+  status: videoStatusEnum('status').notNull().default('uploading'),
+  resolutions: jsonb('resolutions').$type<VideoResolution[]>().notNull().default([]),
+  categoryId: varchar('category_id', { length: 50 }),
+  uploadedBy: varchar('uploaded_by', { length: 50 }).notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export const subscriptions = pgTable('subscriptions', {
+  id: varchar('id', { length: 50 }).primaryKey(),
+  userId: varchar('user_id', { length: 50 }).notNull(),
+  plan: subscriptionPlanEnum('plan').notNull().default('free'),
+  status: subscriptionStatusEnum('status').notNull().default('trial'),
+  currentPeriodStart: timestamp('current_period_start').notNull(),
+  currentPeriodEnd: timestamp('current_period_end').notNull(),
+  yookassaPaymentMethodId: varchar('yookassa_payment_method_id', { length: 255 }),
+  autoRenewal: boolean('auto_renewal').notNull().default(false),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+```
+
+### Repository Pattern Example
+
+```typescript
+// src/lib/db/repositories/user.repository.ts
+export class UserRepository {
+  static async create(data: NewUser): Promise<User> {
+    const [user] = await db.insert(users).values(data).returning();
+    return user;
+  }
+
+  static async findByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+    return user;
+  }
 }
 ```
 

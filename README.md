@@ -446,37 +446,22 @@ The main changes needed:
 ⚠️ **Production Checklist:**
 
 - [ ] Change `JWT_SECRET` to a strong random value
+- [ ] Set up PostgreSQL database with proper backups
+- [ ] Configure YooKassa credentials (YOOKASSA_SHOP_ID, YOOKASSA_SECRET_KEY)
 - [ ] Use HTTPS in production
-- [ ] Set up proper S3 bucket policies
+- [ ] Set up proper S3 bucket policies and CORS
 - [ ] Enable CORS only for trusted origins
-- [ ] Implement rate limiting
-- [ ] Add input sanitization
-- [ ] Set up proper logging and monitoring
-- [ ] Use a real database (PostgreSQL recommended)
+- [ ] Implement rate limiting (e.g., using Hono rate limiter)
+- [ ] Add input sanitization beyond Zod validation
+- [ ] Set up proper logging and monitoring (e.g., Sentry, DataDog)
 - [ ] Implement video upload size limits
-- [ ] Add file type validation
-- [ ] Set up CDN for video delivery
-
-## 🗄️ Database Migration
-
-The current implementation uses an in-memory store. For production, migrate to a real database:
-
-### Recommended: PostgreSQL with Prisma
-
-```bash
-npm install @prisma/client prisma
-npx prisma init
-```
-
-Create your schema in `prisma/schema.prisma` based on `src/types/index.ts`
-
-### Alternative: MongoDB
-
-```bash
-npm install mongodb
-```
-
-Replace `src/lib/db/store.ts` with MongoDB operations.
+- [ ] Add file type validation for uploads
+- [ ] Set up CDN for video delivery (e.g., CloudFlare, AWS CloudFront)
+- [ ] Configure YooKassa webhook URL in YooKassa dashboard
+- [ ] Set up job queue for video processing (Bull, BullMQ)
+- [ ] Add database indexes for performance
+- [ ] Configure database connection pooling
+- [ ] Set up automated database migrations in CI/CD
 
 ## 🎬 Video Codec Notes
 
@@ -515,8 +500,11 @@ Contributions welcome! This is a starter template - feel free to extend it with:
 
 - [Hono.js](https://hono.dev/) - Amazing web framework
 - [Bun](https://bun.sh/) - Fast JavaScript runtime
+- [Drizzle ORM](https://orm.drizzle.team/) - TypeScript ORM with excellent developer experience
+- [postgres.js](https://github.com/porsager/postgres) - Fast PostgreSQL client
 - [FFmpeg](https://ffmpeg.org/) - Video processing powerhouse
 - [Zod](https://zod.dev/) - Type-safe validation
+- [YooKassa](https://yookassa.ru/) - Russian payment gateway
 
 ---
 

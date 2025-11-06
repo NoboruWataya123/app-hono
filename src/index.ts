@@ -9,6 +9,10 @@ import authRoutes from './routes/auth.routes';
 import videoRoutes from './routes/video.routes';
 import userRoutes from './routes/user.routes';
 import categoryRoutes from './routes/category.routes';
+import subscriptionRoutes from './routes/subscription.routes';
+import webhookRoutes from './routes/webhook.routes';
+import watchlistRoutes from './routes/watchlist.routes';
+import watchHistoryRoutes from './routes/watch-history.routes';
 
 /**
  * Main application instance
@@ -49,6 +53,10 @@ app.route('/api/auth', authRoutes);
 app.route('/api/videos', videoRoutes);
 app.route('/api/users', userRoutes);
 app.route('/api/categories', categoryRoutes);
+app.route('/api/subscriptions', subscriptionRoutes);
+app.route('/api/webhooks', webhookRoutes);
+app.route('/api/watchlist', watchlistRoutes);
+app.route('/api/watch-history', watchHistoryRoutes);
 
 // OpenAPI documentation
 app.doc('/api/openapi.json', {
@@ -70,6 +78,10 @@ A modern video streaming platform focused on regional and independent films.
 - **Video Management**: Upload, transcode, and manage video content
 - **Categories & Genres**: Organize content effectively
 - **Streaming URLs**: Presigned URLs for secure video streaming
+- **Subscriptions**: YooKassa-powered billing with free, basic, and premium plans
+- **Watchlist**: Add videos to favorites for later watching
+- **Watch History**: Track viewing progress and continue watching
+- **Payment Webhooks**: Real-time payment status updates
 
 ## Authentication
 
@@ -80,6 +92,15 @@ Authorization: Bearer <your-token>
 \`\`\`
 
 Get your token by registering or logging in via the /api/auth endpoints.
+
+## Subscriptions
+
+The platform offers three subscription tiers:
+- **Free**: Basic access to content
+- **Basic**: 299 RUB/month - Enhanced features
+- **Premium**: 599 RUB/month - Full access to all content
+
+Payments are processed through YooKassa payment gateway.
     `,
   },
   servers: [

@@ -27,6 +27,10 @@ const envSchema = z.object({
 
   // CORS
   CORS_ORIGIN: z.string().default('http://localhost:3001'),
+
+  // YooKassa (Payment Gateway)
+  YOOKASSA_SHOP_ID: z.string(),
+  YOOKASSA_SECRET_KEY: z.string(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -50,6 +54,8 @@ function loadEnv(): Env {
       DEFAULT_VIDEO_CODEC: process.env.DEFAULT_VIDEO_CODEC,
       TEMP_UPLOAD_DIR: process.env.TEMP_UPLOAD_DIR,
       CORS_ORIGIN: process.env.CORS_ORIGIN,
+      YOOKASSA_SHOP_ID: process.env.YOOKASSA_SHOP_ID,
+      YOOKASSA_SECRET_KEY: process.env.YOOKASSA_SECRET_KEY,
     };
 
     return envSchema.parse(env);

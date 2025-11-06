@@ -11,6 +11,9 @@ A modern, minimalist video streaming platform built for regional and independent
 - **📦 Video Processing** - Automatic transcoding to multiple resolutions
 - **🏷️ Categories & Genres** - Organized content discovery
 - **📡 Presigned URLs** - Secure video streaming without exposing credentials
+- **💳 YooKassa Billing** - Integrated payment gateway with subscriptions
+- **⭐ Watchlist** - Add videos to favorites for later viewing
+- **📜 Watch History** - Track viewing progress and continue watching
 - **📖 OpenAPI Documentation** - Interactive API documentation with Swagger UI
 - **🔄 RESTful API** - Clean, well-documented API design
 
@@ -23,12 +26,15 @@ A modern, minimalist video streaming platform built for regional and independent
 - **[postgres.js](https://github.com/porsager/postgres)** - Fast PostgreSQL client
 - **[Bun S3](https://bun.sh/docs/api/s3)** - Native S3 integration
 - **[FFmpeg](https://ffmpeg.org/)** - Video processing and transcoding
+- **[YooKassa](https://yookassa.ru/)** - Russian payment gateway
 - **TypeScript** - Type safety and better DX
 
 ### Features
 - PostgreSQL database with Drizzle ORM
 - Repository pattern for clean data access
 - JWT authentication with bcrypt password hashing
+- YooKassa subscription billing
+- Watchlist and watch history tracking
 - Modular, maintainable architecture
 - Best practices for Hono.js development
 
@@ -108,6 +114,10 @@ TEMP_UPLOAD_DIR=/tmp/uploads
 
 # CORS
 CORS_ORIGIN=http://localhost:3001
+
+# YooKassa Payment Gateway
+YOOKASSA_SHOP_ID=your-shop-id
+YOOKASSA_SECRET_KEY=your-secret-key
 ```
 
 ### 3. Database Setup
@@ -199,6 +209,41 @@ Open your browser and navigate to:
 | PATCH | `/api/categories/:id` | Update category (admin) |
 | DELETE | `/api/categories/:id` | Delete category (admin) |
 | GET | `/api/categories/genres` | List all genres |
+
+### Subscriptions
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/subscriptions/current` | Get current subscription |
+| POST | `/api/subscriptions` | Create subscription |
+| POST | `/api/subscriptions/cancel` | Cancel subscription |
+| POST | `/api/subscriptions/reactivate` | Reactivate subscription |
+| GET | `/api/subscriptions/payments` | Get payment history |
+
+### Watchlist
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/watchlist` | Get user's watchlist |
+| POST | `/api/watchlist` | Add video to watchlist |
+| DELETE | `/api/watchlist/:videoId` | Remove video from watchlist |
+| GET | `/api/watchlist/:videoId/check` | Check if video is in watchlist |
+
+### Watch History
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/watch-history` | Get watch history |
+| POST | `/api/watch-history` | Update watch progress |
+| GET | `/api/watch-history/continue` | Get continue watching list |
+| DELETE | `/api/watch-history/:videoId` | Delete watch history entry |
+| DELETE | `/api/watch-history` | Clear all watch history |
+
+### Webhooks
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/webhooks/yookassa` | YooKassa payment notifications |
 
 ## 🎯 Usage Examples
 
@@ -292,30 +337,50 @@ curl -X GET "http://localhost:3000/api/videos/vid_xyz789/stream?quality=720p" \
 ```
 src/
 ├── config/
-│   └── env.ts              # Environment configuration
+│   └── env.ts                    # Environment configuration
 ├── lib/
 │   ├── db/
-│   │   └── store.ts        # In-memory data store
+│   │   ├── client.ts            # PostgreSQL client
+│   │   ├── schema.ts            # Drizzle schema definitions
+│   │   ├── migrate.ts           # Migration runner
+│   │   ├── seed.ts              # Database seeding
+│   │   └── repositories/        # Data access layer
+│   │       ├── user.repository.ts
+│   │       ├── video.repository.ts
+│   │       ├── category.repository.ts
+│   │       ├── genre.repository.ts
+│   │       ├── subscription.repository.ts
+│   │       ├── payment.repository.ts
+│   │       ├── watchlist.repository.ts
+│   │       └── watch-history.repository.ts
 │   ├── ffmpeg/
-│   │   └── wrapper.ts      # FFmpeg CLI wrapper
-│   └── s3/
-│       └── client.ts       # S3 service utilities
+│   │   └── wrapper.ts           # FFmpeg CLI wrapper
+│   ├── s3/
+│   │   └── client.ts            # S3 service utilities
+│   └── yookassa/
+│       └── client.ts            # YooKassa payment client
 ├── middleware/
-│   └── auth.ts             # Authentication middleware
+│   └── auth.ts                  # Authentication middleware
 ├── routes/
-│   ├── auth.routes.ts      # Authentication routes
-│   ├── video.routes.ts     # Video management routes
-│   ├── user.routes.ts      # User management routes
-│   └── category.routes.ts  # Category/genre routes
+│   ├── auth.routes.ts           # Authentication routes
+│   ├── video.routes.ts          # Video management routes
+│   ├── user.routes.ts           # User management routes
+│   ├── category.routes.ts       # Category/genre routes
+│   ├── subscription.routes.ts   # Subscription routes
+│   ├── webhook.routes.ts        # Payment webhook handler
+│   ├── watchlist.routes.ts      # Watchlist routes
+│   └── watch-history.routes.ts  # Watch history routes
 ├── schemas/
-│   ├── user.schemas.ts     # User validation schemas
-│   ├── video.schemas.ts    # Video validation schemas
-│   └── category.schemas.ts # Category validation schemas
+│   ├── user.schemas.ts          # User validation schemas
+│   ├── video.schemas.ts         # Video validation schemas
+│   ├── category.schemas.ts      # Category validation schemas
+│   ├── subscription.schemas.ts  # Subscription schemas
+│   └── watchlist.schemas.ts     # Watchlist/history schemas
 ├── types/
-│   └── index.ts            # TypeScript type definitions
+│   └── index.ts                 # TypeScript type definitions
 ├── utils/
-│   └── auth.ts             # Authentication utilities
-└── index.ts                # Main application entry
+│   └── auth.ts                  # Authentication utilities
+└── index.ts                     # Main application entry
 ```
 
 ## 🎨 Architecture Highlights
@@ -435,15 +500,16 @@ MIT
 
 Contributions welcome! This is a starter template - feel free to extend it with:
 
-- Real database integration
 - Job queue for video processing (Bull, BullMQ)
 - WebSockets for upload progress
 - Video analytics
 - Comments and ratings
 - Recommendations engine
 - Admin dashboard
-- Payment integration
 - CDN integration
+- Social features (likes, shares)
+- Email notifications
+- Multi-language support
 
 ## 🙏 Acknowledgments
 
